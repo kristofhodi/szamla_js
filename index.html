@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8" />
+  <title>Számlakezelő</title>
+  <style>
+    body { font-family: sans-serif; max-width: 800px; margin: 2rem auto; }
+    .invoice { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem; }
+    .header { display: flex; justify-content: space-between; }
+    .meta { margin-top: 0.5rem; }
+    .storno { color: red; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>Számlák</h1>
+  <div id="form-section">
+    <h2>Új számla hozzáadása</h2>
+    <p>Csak az adatbázisban szereplő cégek: 1 - A, 2 - B, 3 - C (ezek közül lehet választani)</p>
+    <form id="invoice-form">
+      <input type="text" name="number" placeholder="Számlaszám" required />
+      <input type="number" name="issuer_id" placeholder="Eladó ID" required />
+      <input type="number" name="buyer_id" placeholder="Vevő ID" required /> <br>
+      Kelte:  <input type="date" name="issue_date" required />
+      Teljesítés:  <input type="date" name="fulfillment_date" required />
+      Határidő:  <input type="date" name="due_date" required /> <br>
+      <input type="number" name="net_amount" placeholder="Nettó összeg" required /> 
+      <input type="number" name="vat" step="0.01" placeholder="ÁFA kulcs (pl. 0.27)" required />
+      <button type="submit">Mentés</button>
+    </form>
+  </div>
+
+  <h2>Számlák listája</h2>
+  <div id="invoices"></div>
+
+  <script>
+    const loadInvoices = () => {
+      fetch('/invoices')
+        .then(res => res.json())
+        .then(data => {
+          const container = document.getElementById('invoices');
+          container.innerHTML = '';
+          data.forEach(inv => {
+            const div = document.createElement('div');
+            div.className = 'invoice';
+            div.innerHTML = `
+              <div class="header">
+                <div><strong>Eladó:</strong><br>${inv.issuer_name}<br>${inv.issuer_address}<br>Adószám: ${inv.issuer_tax}</div>
+                <div><strong>Vevő:</strong><br>${inv.buyer_name}<br>${inv.buyer_address}<br>Adószám: ${inv.buyer_tax}</div>
+              </div>
+              <div class="meta"><strong>Számlaszám:</strong> ${inv.number}</div>
+              <div class="meta">Kelte: ${inv.issue_date} | Teljesítés: ${inv.fulfillment_date} | Határidő: ${inv.due_date}</div>
+              <div class="meta">Nettó: ${inv.net_amount.toFixed(2)} Ft</div>
+              <div class="meta">ÁFA (${(inv.vat * 100).toFixed(0)}%): ${(inv.net_amount * inv.vat).toFixed(2)} Ft</div>
+              <div class="meta"><strong>Bruttó: ${inv.gross_amount.toFixed(2)} Ft</strong></div>
+              ${inv.is_storno ? '<div class="storno">STORNÓZVA</div>' : `<button onclick="storno(${inv.id})">Stornó</button>`}
+            `;
+            container.appendChild(div);
+          });
+        });
+    };
+
+    const form = document.getElementById('invoice-form');
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(form).entries());
+      data.net_amount = parseFloat(data.net_amount);
+      data.vat = parseFloat(data.vat);
+      data.issuer_id = parseInt(data.issuer_id);
+      data.buyer_id = parseInt(data.buyer_id);
+      fetch('/invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      }).then(() => {
+        form.reset();
+        loadInvoices();
+      });
+    });
+
+    const storno = (id) => {
+      fetch(`/invoices/${id}/storno`, { method: 'PUT' })
+        .then(() => loadInvoices());
+    };
+
+    loadInvoices();
+  </script>
+</body>
+</html>
