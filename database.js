@@ -58,7 +58,6 @@ export const stornoInvoice = (id) => {
   db.prepare(`UPDATE invoices SET is_storno = 1 WHERE id = ?`).run(id);
 };
 
-// Adatfeltöltés
 const seedData = () => {
   const users = [
     { name: 'Cég A', address: '1111 Budapest, Fő u. 1.', tax_number: '12345678-1-11' },
